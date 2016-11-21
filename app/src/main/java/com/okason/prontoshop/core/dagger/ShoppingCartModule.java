@@ -28,5 +28,4 @@ public class ShoppingCartModule {
         return  new ShoppingCart(preferences);
     }
 
-
 }

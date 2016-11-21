@@ -1,6 +1,8 @@
 package com.okason.prontoshop.fragments;
 
 
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
@@ -15,10 +17,12 @@ import com.okason.prontoshop.R;
 import com.okason.prontoshop.core.ProntoShopApplication;
 import com.okason.prontoshop.core.ShoppingCart;
 import com.okason.prontoshop.core.listeners.OnTransactionSelectedListener;
+import com.okason.prontoshop.data.sqlite.DatabaseHelper;
 import com.okason.prontoshop.models.Customer;
 import com.okason.prontoshop.models.SalesTransaction;
 import com.okason.prontoshop.adapter.TransactionAdapter;
 
+import com.okason.prontoshop.util.Constants;
 import com.squareup.otto.Bus;
 
 import java.util.ArrayList;
@@ -37,6 +41,9 @@ public class TransactionListFragment extends Fragment
     private View mRootView;
     private TransactionAdapter mAdapter;
 
+    private DatabaseHelper mDBHelper;
+    private SQLiteDatabase mDatabase;
+
 
     @BindView(R.id.transaction_recycler_view) RecyclerView mRecyclerView;
     @BindView(R.id.empty_text) TextView mEmptyTextView;
@@ -45,6 +52,14 @@ public class TransactionListFragment extends Fragment
 
     public TransactionListFragment() {
         // Required empty public constructor
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mDBHelper = DatabaseHelper.newInstance(getActivity());
+        mDatabase = mDBHelper.getWritableDatabase();
+
     }
 
 
@@ -67,11 +82,47 @@ public class TransactionListFragment extends Fragment
     @Override
     public void onResume() {
         super.onResume();
+        loadSalesTransactions();
         try {
             mBus.register(this);
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void loadSalesTransactions() {
+        List<SalesTransaction> transactions = getAllSalesTransactions();
+        if (transactions != null && transactions.size() > 0){
+            hideEmptyText();
+            showSalesTransaction(transactions);
+        }else {
+            showEmptyText();
+        }
+
+    }
+
+    private List<SalesTransaction> getAllSalesTransactions() {
+        //initialize an empty list of transactions
+        List<SalesTransaction> transactions = new ArrayList<>();
+
+        //sql command to select all SalesTransactions;
+        String selectQuery = "SELECT * FROM " + Constants.TRANSACTION_TABLE;
+
+        //make sure the database is not empty
+        if (mDatabase != null) {
+
+            //get a cursor for all lineItems in the database
+            Cursor cursor = mDatabase.rawQuery(selectQuery, null);
+            if (cursor.moveToFirst()) {
+                while (!cursor.isAfterLast()) {
+                    //get each transaction in the cursor
+                    transactions.add(SalesTransaction.getSalesTransactionFromCursor(cursor));
+                    cursor.moveToNext();
+                }
+            }
+            cursor.close();
+        }
+        return transactions;
     }
 
     @Override
@@ -91,8 +142,22 @@ public class TransactionListFragment extends Fragment
 
     @Override
     public Customer getCustomer(long id) {
-        //return mPresenter.getCustomerById(id);
-        return null;
+        //Get the cursor representing the Customer
+        Cursor cursor = mDatabase.rawQuery("SELECT * FROM " + Constants.CUSTOMER_TABLE + " WHERE " +
+                Constants.COLUMN_ID + " = '" + id + "'", null);
+
+        //Create a variable of data type Customer
+        Customer customer;
+        if (cursor.moveToFirst()){
+            customer = Customer.getCustomerFromCursor(cursor);
+        }else {
+            customer = null;
+        }
+
+        cursor.close();
+
+        //Return result: either a valid customer or null
+        return  customer;
     }
 
     public void showSalesTransaction(List<SalesTransaction> transactions) {
@@ -117,6 +182,8 @@ public class TransactionListFragment extends Fragment
     public void showMessage(String message) {
         Toast.makeText(getActivity(), message, Toast.LENGTH_SHORT).show();
     }
+
+
 
 
 }

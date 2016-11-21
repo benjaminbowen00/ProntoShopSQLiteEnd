@@ -3,8 +3,13 @@ package com.okason.prontoshop.fragments;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.DialogFragment;
+import android.content.ContentValues;
 import android.content.DialogInterface;
+import android.database.SQLException;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
+import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -14,6 +19,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 
 import com.okason.prontoshop.R;
+import com.okason.prontoshop.data.sqlite.DatabaseHelper;
 import com.okason.prontoshop.models.Product;
 import com.okason.prontoshop.util.Constants;
 import com.okason.prontoshop.util.Formatter;
@@ -30,6 +36,10 @@ public class AddProductDialogFragment extends DialogFragment {
 
 
     private boolean mInEditMode = false;
+    private static final String LOG_TAG = AddProductDialogFragment.class.getSimpleName();
+
+    private DatabaseHelper mDBHelper;
+    private SQLiteDatabase mDatabase;
 
     @BindView(R.id.edit_text_product_name) EditText mNameEditText;
     @BindView(R.id.edit_text_product_description) EditText mDescriptionEditText;
@@ -61,6 +71,8 @@ public class AddProductDialogFragment extends DialogFragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mDBHelper = DatabaseHelper.newInstance(getActivity());
+        mDatabase = mDBHelper.getWritableDatabase();
     }
 
 
@@ -197,17 +209,42 @@ public class AddProductDialogFragment extends DialogFragment {
         product.setPromoMessage(mPromoMessageEditText.getText().toString());
         product.setCategoryName(mCategoryAutoComplete.getText().toString());
         product.setImagePath(mImagePathEditText.getText().toString());
-        try {
-            product.setSalePrice(baseFormat.parse(mSalePriceEditText.getText().toString()).doubleValue());
-            product.setPurchasePrice(baseFormat.parse(mPurchasePriceEditText.getText().toString()).doubleValue());
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
+
+        String salePriceText = mSalePriceEditText.getText().toString();
+        double price = Double.parseDouble(TextUtils.isEmpty(salePriceText) ? (String) "0.00" : salePriceText);
+        product.setSalePrice(price);
+
+        String costPriceText = mPurchasePriceEditText.getText().toString();
+        double cost = Double.parseDouble(TextUtils.isEmpty(costPriceText) ? (String) "0.00" : costPriceText);
+        product.setPurchasePrice(cost);
+
+
 
         saveProductToDatbase(product);
     }
 
     private void saveProductToDatbase(Product product) {
-        //Todo - Save product to database
+        //ensure that the database exists
+        if (mDatabase != null) {
+            //prepare the transaction information that will be saved to the mDa
+            ContentValues values = new ContentValues();
+            values.put(Constants.COLUMN_NAME, product.getProductName());
+            values.put(Constants.COLUMN_DESCRIPTION, product.getDescription());
+            values.put(Constants.COLUMN_PRICE, product.getSalePrice());
+            values.put(Constants.COLUMN_PURCHASE_PRICE, product.getPurchasePrice());
+            values.put(Constants.COLUMN_IMAGE_PATH, product.getImagePath());
+           // values.put(Constants.COLUMN_CATEGORY_ID, createOrGetCategoryId(product.getCategoryName()));
+            values.put(Constants.COLUMN_CATEGORY_NAME, product.getCategoryName());
+            values.put(Constants.COLUMN_DATE_CREATED, System.currentTimeMillis());
+            values.put(Constants.COLUMN_LAST_UPDATED, System.currentTimeMillis());
+            try {
+                long id = mDatabase.insertOrThrow(Constants.PRODUCT_TABLE, null, values);
+                Log.d(LOG_TAG, "Product Added");
+
+            } catch (SQLException e) {
+                Log.d(LOG_TAG, e.getCause() + " " + e.getMessage());
+            }
+        }
+
     }
 }

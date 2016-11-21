@@ -2,12 +2,15 @@ package com.okason.prontoshop.adapter;
 
 import android.content.Context;
 import android.support.v7.widget.RecyclerView;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.amulyakhare.textdrawable.TextDrawable;
+import com.amulyakhare.textdrawable.util.ColorGenerator;
 import com.okason.prontoshop.R;
 import com.okason.prontoshop.core.listeners.OnProductSelectedListener;
 import com.okason.prontoshop.models.Product;
@@ -50,11 +53,23 @@ public class ProductListAdapter extends RecyclerView.Adapter<ProductListAdapter.
         if (mProducts != null){
             try {
                 final Product product = mProducts.get(position);
-                Picasso.with(mContext)
-                        .load(product.getImagePath())
-                        .fit()
-                        .placeholder(R.drawable.default_image)
-                        .into(holder.productImage);
+                if (!TextUtils.isEmpty(product.getImagePath())) {
+                    Picasso.with(mContext)
+                            .load(product.getImagePath())
+                            .fit()
+                            .placeholder(R.drawable.default_image)
+                            .into(holder.productImage);
+                } else {
+                    String productName = product.getProductName();
+                    String firstLetter = productName.substring(0, 1);
+
+                    ColorGenerator generator = ColorGenerator.MATERIAL;
+                    int color = generator.getRandomColor();
+
+                    TextDrawable drawable = TextDrawable.builder()
+                            .buildRect(firstLetter, color);
+                    holder.productImage.setImageDrawable(drawable);
+                }
                 holder.productName.setText(product.getProductName());
                 holder.category.setText(product.getCategoryName());
                 holder.productPrice.setText(Formatter.formatCurrency(product.getSalePrice()));

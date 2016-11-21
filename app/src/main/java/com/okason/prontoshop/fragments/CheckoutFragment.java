@@ -2,11 +2,15 @@ package com.okason.prontoshop.fragments;
 
 
 import android.app.AlertDialog;
+import android.content.ContentValues;
 import android.content.DialogInterface;
+import android.database.SQLException;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,8 +23,11 @@ import com.okason.prontoshop.R;
 import com.okason.prontoshop.core.ProntoShopApplication;
 import com.okason.prontoshop.core.ShoppingCart;
 import com.okason.prontoshop.core.listeners.CartActionsListener;
+import com.okason.prontoshop.data.sqlite.DatabaseHelper;
 import com.okason.prontoshop.models.LineItem;
 import com.okason.prontoshop.adapter.CheckoutAdapter;
+import com.okason.prontoshop.models.SalesTransaction;
+import com.okason.prontoshop.util.Constants;
 import com.okason.prontoshop.util.Formatter;
 import com.squareup.otto.Bus;
 
@@ -40,8 +47,13 @@ import butterknife.OnClick;
 public class CheckoutFragment extends Fragment implements
         CartActionsListener {
 
+    private static String LOG_TAG = AddCustomerDialogFragment.class.getSimpleName();
+
     private View mRootView;
     private CheckoutAdapter mAdapter;
+
+    private DatabaseHelper mDBHelper;
+    private SQLiteDatabase mDatabase;
 
 
     @BindView(R.id.cart_list_recyclerview) RecyclerView mRecyclerView;
@@ -75,6 +87,13 @@ public class CheckoutFragment extends Fragment implements
 
     public CheckoutFragment() {
         // Required empty public constructor
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mDBHelper = DatabaseHelper.newInstance(getActivity());
+        mDatabase = mDBHelper.getWritableDatabase();
     }
 
 
@@ -220,7 +239,71 @@ public class CheckoutFragment extends Fragment implements
     }
 
     private void checkout() {
+        SalesTransaction transaction = new SalesTransaction();
+        transaction.setCustomerId(mCart.getSelectedCustomer().getId());
+        transaction.setLineItems(mCart.getShoppingCart());
+        transaction.setTaxAmount(tax);
+        transaction.setSubTotalAmount(subtotal);
+        transaction.setTotalAmount(total);
+        transaction.setPaymentType(selectedPaymentType);
+        transaction.setPaid(paid);
 
+        List<LineItem> lineItems = mCart.getShoppingCart();
+
+        //Save the Transaction to the database and obtain the Id
+        long id = saveTransactionToDatabase(transaction);
+
+        //Now save the LineItems
+        if (id != -1) {
+            for (LineItem lineItem: lineItems){
+                saveLineItemToDatabase(id, lineItem);
+            }
+        }
+        mCart.clearShoppingCart();
+
+    }
+
+    private void saveLineItemToDatabase(long id, LineItem lineItem) {
+        if (mDatabase != null) {
+            //prepare the transaction information that will be saved to the database
+            ContentValues values = new ContentValues();
+            values.put(Constants.COLUMN_QUANTITY, lineItem.getQuantity());
+            values.put(Constants.COLUMN_TRANSACTION_ID, id);
+            values.put(Constants.COLUMN_PRODUCT_ID, lineItem.getId());
+            values.put(Constants.COLUMN_DATE_CREATED, System.currentTimeMillis());
+            values.put(Constants.COLUMN_LAST_UPDATED, System.currentTimeMillis());
+            try {
+                mDatabase.insertOrThrow(Constants.LINEITEM_TABLE, null, values);
+                Log.d(LOG_TAG, "LineItem Added");
+            } catch (SQLException e) {
+                Log.d(LOG_TAG, (e.getCause() + " " + e.getMessage()));
+            }
+        }
+
+    }
+
+    private long saveTransactionToDatabase(SalesTransaction transaction) {
+        //ensure that the database exists
+        long result = -1;
+        if (mDatabase != null) {
+            //prepare the transaction information that will be saved to the database
+            ContentValues values = new ContentValues();
+            values.put(Constants.COLUMN_CUSTOMER_ID, transaction.getCustomerId());
+            values.put(Constants.COLUMN_PAYMENT_STATUS, transaction.isPaid());
+            values.put(Constants.COLUMN_PAYMENT_TYPE, transaction.getPaymentType());
+            values.put(Constants.COLUMN_TAX_AMOUNT, transaction.getTaxAmount());
+            values.put(Constants.COLUMN_SUB_TOTAL_AMOUNT, transaction.getSubTotalAmount());
+            values.put(Constants.COLUMN_TOTAL_AMOUNT, transaction.getTotalAmount());
+            values.put(Constants.COLUMN_DATE_CREATED, System.currentTimeMillis());
+            values.put(Constants.COLUMN_LAST_UPDATED, System.currentTimeMillis());
+            try {
+                result = mDatabase.insertOrThrow(Constants.TRANSACTION_TABLE, null, values);
+                Log.d(LOG_TAG, "Transaction saved");
+            } catch (SQLException e) {
+                Log.d(LOG_TAG, e.getCause() + " " + e.getMessage());
+            }
+        }
+        return result;
     }
 
 

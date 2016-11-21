@@ -2,10 +2,14 @@ package com.okason.prontoshop.fragments;
 
 
 import android.app.Dialog;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
+import android.database.SQLException;
+import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
@@ -15,6 +19,7 @@ import android.support.v4.app.Fragment;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -24,9 +29,11 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import com.okason.prontoshop.R;
+import com.okason.prontoshop.core.ProntoShopApplication;
 import com.okason.prontoshop.core.ShoppingCart;
 import com.okason.prontoshop.core.listeners.OnProductSelectedListener;
 import com.okason.prontoshop.data.SampleProductData;
+import com.okason.prontoshop.data.sqlite.DatabaseHelper;
 import com.okason.prontoshop.models.LineItem;
 import com.okason.prontoshop.models.Product;
 import com.okason.prontoshop.adapter.ProductListAdapter;
@@ -34,6 +41,8 @@ import com.okason.prontoshop.util.Constants;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.inject.Inject;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -43,15 +52,18 @@ import butterknife.ButterKnife;
  */
 public class ProductListFragment extends Fragment
         implements OnProductSelectedListener {
+    private DatabaseHelper mDBHelper;
+    private SQLiteDatabase mDatabase;
+    private static final String LOG_TAG = ProductListFragment.class.getSimpleName();
+
 
     private View mRootView;
     private ProductListAdapter mAdapter;
     private AddProductDialogFragment mAddProductDialogFragment;
-    private ShoppingCart mCart;
     private SharedPreferences sharedPreferences;
 
 
-
+    @Inject ShoppingCart mCart;
     @BindView(R.id.product_recycler_view) RecyclerView mRecyclerView;
     @BindView(R.id.empty_text) TextView mEmptyTextView;
     @BindView(R.id.fab) FloatingActionButton mFab;
@@ -61,6 +73,13 @@ public class ProductListFragment extends Fragment
         // Required empty public constructor
     }
 
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mDBHelper = DatabaseHelper.newInstance(getActivity());
+        mDatabase = mDBHelper.getWritableDatabase();
+    }
+
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -68,8 +87,8 @@ public class ProductListFragment extends Fragment
         // Inflate the layout for this fragment
         mRootView = inflater.inflate(R.layout.fragment_products_list, container, false);
         ButterKnife.bind(this, mRootView);
+        ProntoShopApplication.getInstance().getAppComponent().inject(this);
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getContext());
-        mCart = new ShoppingCart(sharedPreferences);
         mFab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -94,7 +113,7 @@ public class ProductListFragment extends Fragment
     }
 
     private void loadProducts() {
-        List<Product> availableProducts = SampleProductData.getSampleProducts();
+        List<Product> availableProducts = getAllProductsFromDatabase();
         if (availableProducts != null && availableProducts.size() > 0){
             hideEmptyText();
             mAdapter.replaceData(availableProducts);
@@ -103,6 +122,38 @@ public class ProductListFragment extends Fragment
             showEmptyText();
         }
 
+    }
+
+    private List<Product> getAllProductsFromDatabase() {
+        //initialize an empty list of customers
+        List<Product> products = new ArrayList<>();
+
+        //sql command to select all Products;
+        String selectQuery = "SELECT * FROM " + Constants.PRODUCT_TABLE;
+
+        //make sure the database is not empty
+        if (mDatabase != null) {
+
+            //get a cursor for all products in the database
+            Cursor cursor = mDatabase.rawQuery(selectQuery, null);
+            if (cursor.moveToFirst()) {
+                while (!cursor.isAfterLast()) {
+                    //get each product in the cursor
+                    products.add(Product.getProductFromCursor(cursor));
+                    cursor.moveToNext();
+                }
+            }
+            cursor.close();
+        }
+
+        if (products.size() < 1){
+            products = SampleProductData.getSampleProducts();
+            for (Product product: products){
+                saveProductToDatbase(product);
+            }
+        }
+
+        return products;
     }
 
 
@@ -224,6 +275,31 @@ public class ProductListFragment extends Fragment
                 }
             }
         });
+
+    }
+
+    private void saveProductToDatbase(Product product) {
+        //ensure that the database exists
+        if (mDatabase != null) {
+            //prepare the transaction information that will be saved to the mDa
+            ContentValues values = new ContentValues();
+            values.put(Constants.COLUMN_NAME, product.getProductName());
+            values.put(Constants.COLUMN_DESCRIPTION, product.getDescription());
+            values.put(Constants.COLUMN_PRICE, product.getSalePrice());
+            values.put(Constants.COLUMN_PURCHASE_PRICE, product.getPurchasePrice());
+            values.put(Constants.COLUMN_IMAGE_PATH, product.getImagePath());
+            // values.put(Constants.COLUMN_CATEGORY_ID, createOrGetCategoryId(product.getCategoryName()));
+            values.put(Constants.COLUMN_CATEGORY_NAME, product.getCategoryName());
+            values.put(Constants.COLUMN_DATE_CREATED, System.currentTimeMillis());
+            values.put(Constants.COLUMN_LAST_UPDATED, System.currentTimeMillis());
+            try {
+                long id = mDatabase.insertOrThrow(Constants.PRODUCT_TABLE, null, values);
+                Log.d(LOG_TAG, "Product Added");
+
+            } catch (SQLException e) {
+                Log.d(LOG_TAG, e.getCause() + " " + e.getMessage());
+            }
+        }
 
     }
 }

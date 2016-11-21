@@ -1,6 +1,7 @@
 package com.okason.prontoshop.adapter;
 
 import android.support.v7.widget.RecyclerView;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -45,7 +46,9 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
         if (mTransactions != null){
             SalesTransaction selectedTransaction = mTransactions.get(position);
             holder.paidCheckbox.setChecked(selectedTransaction.isPaid() ? true : false);
-            holder.customerName.setText(mListener.getCustomer(selectedTransaction.getId()).getCustomerName());
+            if (!TextUtils.isEmpty(mListener.getCustomer(selectedTransaction.getId()).getCustomerName())) {
+                holder.customerName.setText(mListener.getCustomer(selectedTransaction.getId()).getCustomerName());
+            }
             holder.paymentMethod.setText(selectedTransaction.getPaymentType());
             holder.dateOfTransaction.setText(Formatter.formatDate(selectedTransaction.getTransactionDate()));
             holder.totalAmount.setText(Formatter.formatCurrency(selectedTransaction.getTotalAmount()));

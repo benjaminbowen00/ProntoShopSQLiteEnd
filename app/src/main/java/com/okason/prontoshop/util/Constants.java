@@ -14,7 +14,7 @@ public class Constants {
 
     public static final String PRODUCT_TABLE = "product";
     public static final String CUSTOMER_TABLE = "customer";
-    public static final String RETAILER_TABLE = "retailer";
+    public static final String LINEITEM_TABLE = "lineitem";
     public static final String CATEGORY_TABLE = "category";
     public static final String TRANSACTION_TABLE = "transactions";
 
@@ -23,6 +23,7 @@ public class Constants {
     public final static String COLUMN_ID = "_id";
     public final static String COLUMN_NAME = "name";
     public final static String COLUMN_EMAIL = "email";
+    public final static String COLUMN_WEBSITE = "website";
     public final static String COLUMN_PHONE = "phone";
     public final static String COLUMN_STREET1 = "street1";
     public final static String COLUMN_STREET2 = "street2";
@@ -50,6 +51,7 @@ public class Constants {
 
     //Create constants for column names of RetailerService
     public final  static String COLUMN_INDUSTRY = "industry";
+    public final  static String COLUMN_MANUFACTURER = "manufacturer";
     public final  static String COLUMN_CONTACT_PERSON = "manager_name";
 
     public static final String COLUMN_PURCHASE_PRICE = "purchase_price";
@@ -63,5 +65,8 @@ public class Constants {
     public static final String SERIALIZED_CUSTOMER = "serialized_customer";
     public static final String COLUMN_PAYMENT_TYPE = "payment_type";
     public static final String COLUMN_PAYMENT_STATUS = "payment_status";
+    public static final String COLUMN_QUANTITY = "quantity";
+    public static final String COLUMN_PRODUCT_ID = "product_id";
+    public static final String COLUMN_TRANSACTION_ID = "transaction_id";
 
 }

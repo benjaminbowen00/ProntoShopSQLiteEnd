@@ -1,5 +1,6 @@
 package com.okason.prontoshop.core;
 
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.support.design.widget.TabLayout;
 import android.support.v4.view.ViewPager;
@@ -11,6 +12,7 @@ import android.widget.TextView;
 import com.okason.prontoshop.R;
 import com.okason.prontoshop.core.events.CustomerSelectedEvent;
 import com.okason.prontoshop.core.events.OnCartItemsChangeEvent;
+import com.okason.prontoshop.data.sqlite.DatabaseHelper;
 import com.squareup.otto.Bus;
 import com.squareup.otto.Subscribe;
 
@@ -26,6 +28,8 @@ public class MainActivity extends AppCompatActivity {
 
 
 
+
+
     @BindView(R.id.text_view_number_of_items) TextView mQtyTextView;
     @BindView(R.id.text_view_total_amount) TextView mTotalTextView;
     @BindView(R.id.text_view_customers_name) TextView mNameTextView;
@@ -33,7 +37,7 @@ public class MainActivity extends AppCompatActivity {
     @BindView(R.id.toolbar)Toolbar mToolbar;
     @BindView(R.id.tabs) TabLayout tabLayout;
     @BindView(R.id.viewpager) ViewPager viewPager;
-    @Inject Bus mBus;
+    private Bus mBus;
 
 
     @Override
@@ -44,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
         mToolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(mToolbar);
         ProntoShopApplication.getInstance().getAppComponent().inject(this);
+        mBus = ProntoShopApplication.getInstance().getBus();
         setupViewPager();
 
     }
